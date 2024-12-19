@@ -1,0 +1,240 @@
+---
+title: "Data Analayst Intern Test"
+author: "Dwi Putri Ivane"
+date: "2024-12-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exploring Online Retail Revenue: A Detailed Analysis of Transactions and Trends
+
+> The goal of this analysis is to explore key trends and patterns in online retail transactions, with a focus on understanding revenue generation across different time periods, product categories, and customer segments. The insights derived from this analysis will help develop strategies to optimize sales, improve customer targeting, and enhance business performance for an online retail company.
+
+Below is the detailed process I followed, which includes the six phases of data analysis covered in the course: 1) ask, 2) prepare, 3) process, 4) analyze, 5) share, and 6) act.
+
+### ASK
+
+#### Background
+
+The data was provided by [UCI Machine Learning](https://archive.ics.uci.edu/dataset/352/online+retail). This is a transactional data set which contains all the transactions occurring between 01/12/2010 and 09/12/2011 for a UK-based and registered non-store online retail.The company mainly sells unique all-occasion gifts. Many customers of the company are wholesalers.
+
+#### Business Task
+
+The business task for this analysis is to identify key revenue trends, top-performing products, and customer behaviors in an online retail setting. By examining transaction data across different time periods and product categories, the goal is to provide actionable insights that can help optimize sales strategies, improve inventory management, and enhance overall business performance.
+
+#### Defining Problem
+
+1.  What are the top 10 products by quantity sold?
+2.  What are the top 10 products by revenue?
+3.  How does the monthly revenue trend over time?
+4.  Which 10 countries contribute the most to the overall revenue?
+5.  What is the average revenue per customer, and who are the high-value customers?
+6.  What is the heatmap showing the relationship between month, day, and total revenue?
+
+### PREPARE
+
+#### Data Source
+
+The data was provided by [UCI Machine Learning](https://archive.ics.uci.edu/dataset/352/online+retail).
+
+| ~variable name~ | ~type~        | ~description~                                                |
+|-----------------|---------------|--------------------------------------------------------------|
+| ~InvoiceNo~     | ~categorical~ | ~integral number uniquely assigned to each transaction.~     |
+| ~StockCode~     | ~categorical~ | ~integral number uniquely assigned to each distinct product~ |
+| ~Description~   | ~categorical~ | ~product name~                                               |
+| ~Quantity~      | ~integer~     | ~the quantities of each product (item) per transaction~      |
+| ~InvoiceDate~   | ~date~        | ~the day and time when each transaction was generated~       |
+| ~UnitPrice~     | ~continuous~  | ~product price per unit~                                     |
+| ~CustomerID~    | ~categorical~ | ~integral number uniquely assigned to each customer~         |
+| ~Country~       | ~categorical~ | ~the name of the country where each customer resides~        |
+
+#### ROCCC Verification
+
+-   **reliable**: the dataset is accurate and derived directly from online retail transactions, capturing detailed sales data.
+-   **original**: the data is collected firsthand from online retail system, making it highly original and trustworthy.
+-   **comprehensive**: the dataset is moderately comprehensive.
+-   **current**: the data covers transactions from December 2010 to December 2011.
+-   **cited**: the dataset orginates from the UCI Machine Learning Repository, ensuring credibility as it is widely recognized and used for educational research purpose.
+
+### PROCESS
+
+#### Data Analysis Tools
+
+RStudio is being used as the primary data analysis tools to process, clean, and visualize the dataset.
+
+#### Setting up and importing the dataset
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+# Set working directory to the folder containing your Excel file
+setwd("C:/Users/Lenovo/Downloads/dataanalysttest")
+
+# Load required library
+library(readxl)
+library(dplyr)
+library(skimr)
+library(lubridate)
+library(ggplot2)
+
+# Read the XLSX file into R
+data <- read_excel("onlineretail.xlsx", sheet = 1)
+
+# View the first few rows of the data
+head(data)
+```
+
+#### Check for missing values
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+sapply(data, function(x) sum(is.na(x)))
+```
+
+column such as CustomerID might have missing values, which could indicate either guest or incomplete transaction.
+
+#### Filter out invalid data
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+cleaned_data <- data %>% 
+  filter(!is.na(CustomerID), Quantity>0, UnitPrice>0)
+
+# View the first few rows of the data
+head(cleaned_data)
+```
+
+#### Add revenue and time features
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+cleaned_data <- cleaned_data %>% 
+  mutate(
+    Revenue = Quantity*UnitPrice,
+    Year=year(InvoiceDate),
+    Month=month(InvoiceDate),
+    Day=day(InvoiceDate),
+    Hour=hour(InvoiceDate)
+  )
+
+# View the first few rows of the data
+head(cleaned_data)
+```
+
+### ANALYZE
+
+#### The top 10 products by quantity sold
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+top_product <- cleaned_data %>% 
+  group_by(Description) %>% 
+  summarize(TotalQuantity=sum(Quantity)) %>% 
+  arrange(desc(TotalQuantity)) %>% 
+  head(10)
+
+top_product
+```
+
+This table lists the top 10 products by quantity sold, showing their descriptions and total quantities. The highest-selling item is "PAPER CRAFT, LITTLE BIRDIE" with 80,995 units, followed by "MEDIUM CERAMIC TOP STORAGE JAR" with 77,916 units. Other popular items include various decorative and practical products like "WORLD WAR 2 GLIDERS ASSTD DESIGNS" and "JUMBO BAG RED RETROSPOT."
+
+#### The top 10 products by revenue
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+top_revenue_products <- cleaned_data %>% 
+  group_by(Description) %>% 
+  summarize(TotalRevenue=sum(Revenue)) %>% 
+  arrange(desc(TotalRevenue)) %>% 
+  head(10)
+
+top_revenue_products
+```
+
+This table highlights the top 10 products by total revenue. The highest revenue was generated by "PAPER CRAFT, LITTLE BIRDIE" at \$168,469.60, followed by "REGENCY CAKESTAND 3 TIER" with \$142,592.95. Other high-revenue products include "WHITE HANGING HEART T-LIGHT HOLDER" and "JUMBO BAG RED RETROSPOT," showcasing a mix of decorative and functional items.
+
+#### Monthly revenue trend over time
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+monthly_revenue <- cleaned_data %>% 
+  group_by(Year, Month) %>% 
+  summarize(TotalRevenue=sum(Revenue), .groups = 'drop')
+
+monthly_revenue
+
+ggplot(monthly_revenue, aes(x=Month, y=TotalRevenue, color=as.factor(Year))) +
+  geom_line() + 
+  scale_x_continuous(breaks = 1:12) +
+  labs(
+    title="Monthly Revenue Trend", 
+    x="Month", 
+    y="Revenue") +
+  theme_minimal()
+```
+
+The revenue data for 2010 only includes December, which is why the trend for that year is not fully visible. However, the revenue trend for 2011 shows a general upward trajectory from the beginning of the year, reaching its peak in November. The decline in December 2011 is likely due to incomplete data, as it does not account for sales through the end of the month. It can be anticipated that December's revenue would continue to rise, given the higher likelihood of purchases for decorations and other festive events during this period.
+
+#### Top 10 countries contribute the most to the overall revenue
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+top_countries <- cleaned_data %>% 
+  group_by(Country) %>% 
+  summarize(TotalRevenue=sum(Revenue)) %>% 
+  arrange(desc(TotalRevenue)) %>% 
+  head(10)
+
+top_countries
+
+ggplot(top_countries,aes(x=reorder(Country, TotalRevenue), y=TotalRevenue)) +
+  geom_bar(stat="identity", fill="#1ABC9C") +
+  coord_flip() +
+  labs(title = "Top 10 Countries by Revenue", x="Country", y="Revenue")
+```
+
+This table shows the total revenue across different countries. The United Kingdom leads with the highest revenue of \$7,308,391.55, followed by the Netherlands at \$285,446.34. Other countries such as EIRE, Germany, and France contribute moderate revenue, while Spain, Switzerland, Belgium, and Sweden generate the lowest revenues, ranging from \$56,443.95 to \$38,378.33.
+
+#### The average revenue per customer, and who are the high-value customers
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+customer_revenue <- cleaned_data %>% 
+  group_by(CustomerID) %>% 
+  summarize(
+    TotalRevenue=sum(Revenue),
+    TotalQuantity=sum(Quantity),
+    NumInvoice=n_distinct(InvoiceNo)
+  ) %>% 
+  arrange(desc(TotalRevenue))
+
+customer_revenue
+```
+
+This table summarizes the total revenue, quantity, and number of invoices for each customer. The customer with ID 14646 generated the highest revenue of \$280,206.02, followed by customer 18102 with \$259,657.30. Other top customers include customer 17450 with \$194,550.79 and customer 16446 with \$168,472.50. The data highlights the total quantity purchased and the number of distinct invoices for each customer, showcasing their purchasing behavior.
+
+#### Heatmap showing the relationship between month, day, and total revenue
+
+```{r load_data, echo=TRUE, message=FALSE, warning=FALSE}
+#drop data from 2010
+cleaned_data_filtered <- cleaned_data %>%
+  filter(Year != 2010)
+
+heatmap <- cleaned_data_filtered %>%
+  group_by(Month, Day) %>%
+  summarize(TotalRevenue = sum(Revenue), .groups = 'drop')
+
+heatmap
+
+ggplot(heatmap, aes(x = Month, y = Day, fill = TotalRevenue)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  scale_x_continuous(breaks = 1:12) +
+  scale_y_continuous(breaks = seq(1, 31, by = 1)) + 
+  labs(x = "Month", y = "Day", title = "Heatmap")
+```
+
+From the heatmap, it can be seen that the highest revenue occurred on December 9th. Revenue started increasing from September and continued to rise through December. This trend could be attributed to several factors, such as the holiday season in December, which typically drives higher consumer spending. Additionally, sales promotions or special offers may have been implemented during this period, encouraging more purchases. The consistent increase in revenue from September to December suggests that customers were making more frequent or larger purchases as the year progressed, possibly due to seasonal demand or promotional campaigns.
+
+### ACT
+
+#### Recommendations
+
+1.  **Make the Most of December**: Since December brings in the most revenue, try running special promotions or discounts during this time to attract more buyers.
+2.  **Highlight Top-Selling Items**: Focus on promoting the most popular products, like "PAPER CRAFT, LITTLE BIRDIE," to keep the sales coming in.
+3.  **Take Care of Your Best Customers**: Customers like ID 14646 and 18102 are big spenders. Keep them happy with personalized offers or special deals to encourage repeat purchases.
+4.  **Take Advantage of Holiday Shopping**: People buy more during the holidays, so offer early discounts in September and October to get a head start on the season, and keep the promotions going through December.
+5.  **Target Low-Sales Countries**: Some countries like Spain and Belgium have lower revenue. Try running ads or special offers tailored to these countries to boost sales there.
